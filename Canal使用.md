@@ -452,3 +452,349 @@ canal client允许同时启动多个canal client，
 下图左边是客户端的HA实现，右边是服务端的HA实现
 
 ![Canal Client HA](Canal使用/image-20210726111703457.png)
+
+## 开发Canal客户端订阅
+
+有时间的话可以把离线数仓和实时数仓来进行对比，发展的方向就是实时处理和数据质量管理的这个方向
+
+### 1、Canal_client模块创建包结构
+
+![canal client 开发](Canal使用/image-20210726125119279.png)
+
+### 2、添加配置文件 - onfig.properties
+
+~~~properties
+# canal配置
+canal.server.ip=yaxin01
+canal.server.port=11111
+canal.server.destination=example
+canal.server.username=canal
+canal.server.password=canal
+canal.subscribe.filter=itcast_shop.*
+
+# zookeeper配置
+zookeeper.server.ip=yaxin01:2181,yaxin02:2181
+
+# kafka配置
+# kafka集群地址
+kafka.bootstrap_servers_config=yaxin01:9092,yaxin02:9092,yaxin03:9092
+# 配置批次发送数据的大小，满足批次大小才会发送数据
+kafka.batch_size_config=1024
+# 1：表示leader节点写入成功，就返回，假设leader节点写入成功以后没有来得及同步，宕机了，数据会丢失
+# 0：异步操作，不管有没有写入成功，都返回，存在丢失数据的可能
+# -1：当leader节点写入成功，同时从节点同步成功以后才会返回，可以保证数据的不丢失
+kafka.acks=all
+# 重试次数
+kafka.retries=0
+kafka.client_id_config=itcast_shop_canal_click
+# kafka的key序列化
+kafka.key_serializer_class_config=org.apache.kafka.common.serialization.StringSerializer
+# kafka的value序列化，这个序列化方式是需要自定义开发的，这个写往kafka中是自定义的，不是字符串的方式，告诉kafka必须使用自定义的这个,ProtoBuf序列化成对象
+kafka.value_serializer_class_config=cn.itcast.canal.protobuf.ProtoBufSerializer
+# 数据写入到kafka的哪个topic中
+kafka.topic=ods_wmy_shop_mysql
+~~~
+
+### 3、编写读取配置文件工具类
+
+ConfigUtil.java
+
+~~~java
+package com.wmy.flink_real_warehouse.canal_client.util;
+
+import java.io.IOException;
+import java.util.Properties;
+
+/**
+ * ClassName:ConfigUtil
+ * Package:com.wmy.flink_real_warehouse.canal_client.util
+ *
+ * @date:2021/7/26 12:54
+ * @author:数仓开发工程师
+ * @email:wmy_2000@163.com
+ * @Description: 读取配置文件的工具类
+ */
+public class ConfigUtil {
+    // 1、定义一个Properties对象
+    private static Properties properties ;
+
+    // 2、定义一个静态的代码块，该代码只执行一次
+    static {
+        try {
+            properties = new Properties();
+            properties.load(ConfigUtil.class.getClassLoader().getResourceAsStream("config.properties"));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // 3、读取配置文件
+    public static String canalServerIp() {
+        return properties.getProperty("canal.server.ip");
+    }
+
+    public static int canalServerPort() {
+        return Integer.parseInt(properties.getProperty("canal.server.port"));
+    }
+
+    public static String canalServerDestination() {
+        return properties.getProperty("canal.server.destination");
+    }
+
+    public static String canalServerUsername() {
+        return properties.getProperty("canal.server.username");
+    }
+
+    public static String canalServerPassword() {
+        return properties.getProperty("canal.server.password");
+    }
+
+    public static String canalSubscribeFilter() {
+        return properties.getProperty("canal.subscribe.filter");
+    }
+
+    public static String zookeeperServerIp() {
+        return properties.getProperty("zookeeper.server.ip");
+    }
+
+    public static String kafkaBootstrap_servers_config() {
+        return properties.getProperty("kafka.bootstrap_servers_config");
+    }
+
+    public static String kafkaBatch_size_config() {
+        return properties.getProperty("kafka.batch_size_config");
+    }
+
+    public static String kafkaAcks() {
+        return properties.getProperty("kafka.acks");
+    }
+
+    public static String kafkaRetries() {
+        return properties.getProperty("kafka.retries");
+    }
+
+    public static String kafkaBatch() {
+        return properties.getProperty("kafka.batch");
+    }
+
+    public static String kafkaClient_id_config() {
+        return properties.getProperty("kafka.client_id_config");
+    }
+
+    public static String kafkaKey_serializer_class_config() {
+        return properties.getProperty("kafka.key_serializer_class_config");
+    }
+
+    public static String kafkaValue_serializer_class_config() {
+        return properties.getProperty("kafka.value_serializer_class_config");
+    }
+
+    public static String kafkaTopic() {
+        return properties.getProperty("kafka.topic");
+    }
+
+    // 4、测试是否读取kafka配置文件是否编写正确
+    public static void main(String[] args) {
+        System.out.println(kafkaTopic());
+    }
+}
+~~~
+
+### 4、编写CanalClient客户端核心实现类
+
+### 5、编写Entrance入口
+
+### 6、数据格式
+
+~~~json
+{
+	"columns": {
+		"adName": "3FYHAAA",
+		"positionType": "1",
+		"adURL": "",
+		"dataFlag": "1",
+		"adEndDate": "2031-08-29",
+		"adPositionId": "304",
+		"adSort": "0",
+		"adClickNum": "0",
+		"adId": "53",
+		"subTitle": "3F",
+		"adStartDate": "2016-02-01",
+		"createTime": "2019-02-23 14:56:05",
+		"adFile": "upload/adspic/2019-02/5c70ee704a548.png"
+	},
+	"eventType": "update",
+	"executeTime": 1627280783000,
+	"logfileName": "mysql-bin.000001",
+	"logfileOffset": 68049493,
+	"schemaName": "itcast_shop",
+	"tableName": "itcast_ads"
+}
+
+{
+	"columns": {
+		"catId": "18",
+		"catCode": "wmybigdata",
+		"catName": "吴明洋大数据管理中心",
+		"dataFlag": "1"
+	},
+	"eventType": "insert",
+	"executeTime": 1627280868000,
+	"logfileName": "mysql-bin.000001",
+	"logfileOffset": 68049953,
+	"schemaName": "itcast_shop",
+	"tableName": "itcast_data_cats"
+}
+~~~
+
+### 7、生产ProtoBuf消息到Kafka中
+
+~~~properties
+create_topic.sh ods_wmy_shop_mysql
+运行测试的Entrance
+
+{
+	"columns": {
+		"catId": "18",
+		"catCode": "wmybigdata",
+		"catName": "吴明洋大数据管理中心",
+		"dataFlag": "1"
+	},
+	"eventType": "insert",
+	"executeTime": 1627280868000,
+	"logfileName": "mysql-bin.000001",
+	"logfileOffset": 68049953,
+	"schemaName": "itcast_shop",
+	"tableName": "itcast_data_cats"
+}
+
+这个数据是不可读的，可读性很差的
+
+{
+	"columns": {
+		"goodsImg": "https://item.jd.com/100004267254.html",
+		"marketPrice": "0.0",
+		"goodsId": "101102",
+		"goodsSn": "100004267254",
+		"visitNum": "0",
+		"isFreeShipping": "0",
+		"goodsCatIdPath": "",
+		"isBest": "0",
+		"saleTime": "2019-02-23 15:38:59",
+		"modifyTime": "2019-02-23 15:38:59",
+		"warnStock": "0",
+		"goodsUnit": "个",
+		"shopId": "100238",
+		"goodsName": "迪士尼ZGD-208-QL9",
+		"productNo": "100004267254",
+		"shopCatId1": "0",
+		"gallery": "",
+		"shopCatId2": "0",
+		"goodsDesc": "",
+		"dataFlag": "1",
+		"isNew": "0",
+		"saleNum": "0",
+		"isSpec": "0",
+		"goodsType": "0",
+		"goodsStock": "0",
+		"goodsTips": "",
+		"shopPrice": "100.0",
+		"goodsStatus": "0",
+		"createTime": "2019-02-23 15:38:59",
+		"brandId": "0",
+		"appraiseNum": "0",
+		"illegalRemarks": "",
+		"isSale": "1",
+		"isRecom": "0",
+		"goodsSerachKeywords": "",
+		"isHot": "0",
+		"goodsCatId": "10308",
+		"goodsSeoKeywords": ""
+	},
+	"eventType": "update",
+	"executeTime": 1627282265000,
+	"logfileName": "mysql-bin.000001",
+	"logfileOffset": 68050345,
+	"schemaName": "itcast_shop",
+	"tableName": "itcast_goods"
+}
+~~~
+
+![kafka的数据](Canal使用/image-20210726144806669.png)
+
+## Flink 读取 kafka 中的protobuf数据
+
+~~~java
+package com.wmy.flink_real_warehouse.canal_client.driver;
+
+import com.wmy.flink_real_warehouse.canal_client.bean.CanalRowData;
+import com.wmy.flink_real_warehouse.canal_client.kafka.CanalRowDataDeserialzerSchema;
+import com.wmy.flink_real_warehouse.canal_client.util.ConfigUtil;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+
+import java.util.Properties;
+
+/**
+ * ClassName:FlinkReadKafkaProtobuf
+ * Package:com.wmy.flink_real_warehouse.canal_client.driver
+ *
+ * @date:2021/7/26 16:25
+ * @author:数仓开发工程师
+ * @email:wmy_2000@163.com
+ * @Description: flink读取kafka中的数据
+ */
+public class FlinkReadKafkaProtobuf {
+    public static void main(String[] args) throws Exception {
+
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+        env.setParallelism(1);
+
+        Properties props = new Properties();
+        props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "yaxin01:9092,yaxin02:9092,yaxin03:9092");
+        props.setProperty(ConsumerConfig.GROUP_ID_CONFIG, "flinkreadkafkaprotobuf");
+        props.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+
+        FlinkKafkaConsumer<CanalRowData> kafkaConsumer = new FlinkKafkaConsumer<>(
+                "ods_wmy_shop_mysql",
+                new CanalRowDataDeserialzerSchema(),
+                props
+        );
+
+        env.addSource(kafkaConsumer).print();
+
+        env.execute();
+    }
+}
+~~~
+
+~~~java
+// 传递一个字节码数据，将字节码数据反序列化成对象
+public CanalRowData(byte[] bytes){
+    try {
+        //将字节码数据反序列成对象
+        CanalModel.RowData rowData = CanalModel.RowData.parseFrom(bytes);
+        this.logfileName = rowData.getLogfilename();
+        this.logfileOffset = rowData.getLogfileoffset();
+        this.executeTime = rowData.getExecuteTime();
+        this.schemaName = rowData.getSchemaName();
+        this.tableName = rowData.getTableName();
+        this.eventType = rowData.getEventType();
+
+        //将所有的列的集合添加到map中
+        this.columns = new HashMap<>();
+        this.columns.putAll(rowData.getColumnsMap());
+    } catch (InvalidProtocolBufferException e) {
+        e.printStackTrace();
+    }
+}
+~~~
+
+## 总结
+
+~~~properties
+目前学的这些都是数据业务数据同步到Kafka里面，还有很多不懂得地方，希望自己能够不断的去学习
+~~~
+
