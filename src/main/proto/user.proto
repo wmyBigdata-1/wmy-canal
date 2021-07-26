@@ -1,0 +1,9 @@
+syntax = "proto3";
+option java_package = "com.wmy.canal.client"; // 包名
+option java_outer_classname = "DemoModel"; // 类名
+
+message User {
+    int32 id = 1;
+    string name = 2;
+    string sex = 3;
+}

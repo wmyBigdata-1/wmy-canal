@@ -1,0 +1,17 @@
+syntax = "proto3";
+option java_package = "com.wmy.canal.client"; // 包名
+option java_outer_classname = "CanalModel"; // 类名
+
+// 注意：这个message和java_outer_classname这个名字不要一样，要不然会报错
+/* 行数据 */
+message RowData {
+    string logfilename = 15;
+    uint64 logfileoffset = 14;
+    uint64 executeTime = 1;
+    string schemaName = 2;
+    string tableName = 3;
+    string eventType = 4;
+
+    /* 列数据 */
+    map<string, string> columns = 5;
+}
